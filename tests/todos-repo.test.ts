@@ -4,7 +4,10 @@ import * as db from '@/lib/db';
 jest.mock('@/lib/db');
 
 describe('todos-repo', () => {
-  let mockDb: any;
+  let mockDb: {
+    prepare: jest.Mock;
+    transaction: jest.Mock;
+  };
 
   beforeEach(() => {
     jest.clearAllMocks();
