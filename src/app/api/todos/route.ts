@@ -1,34 +1,49 @@
 import { NextResponse } from "next/server";
-import { createTodo, listTodos, deleteTodo } from "@/lib/todos-repo";
+import { addItem, listItems, deleteItem, TodoError } from "@/lib/todos-repo";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-export async function GET() {
-  const todos = listTodos();
-  return NextResponse.json({ todos });
+export async function GET(request: Request) {
+  const { searchParams } = new URL(request.url);
+  const userId = searchParams.get("userId") ?? "";
+  if (!userId) {
+    return NextResponse.json({ error: "USER_ID_REQUIRED" }, { status: 400 });
+  }
+  try {
+    const items = listItems(userId);
+    return NextResponse.json({ todos: items });
+  } catch (err) {
+    if (err instanceof TodoError) {
+      return NextResponse.json({ error: err.code, message: err.message }, { status: 400 });
+    }
+    return NextResponse.json({ error: "INTERNAL_ERROR" }, { status: 500 });
+  }
 }
 
 export async function POST(request: Request) {
   const body = (await request.json().catch(() => null)) as {
+    userId?: unknown;
     name?: unknown;
+    content?: unknown;
   } | null;
 
+  const userId = typeof body?.userId === "string" ? body.userId.trim() : "";
   const name = typeof body?.name === "string" ? body.name.trim() : "";
-  if (!name) {
-    return NextResponse.json({ error: "NAME_REQUIRED" }, { status: 400 });
+  const content = typeof body?.content === "string" ? body.content : "";
+
+  if (!userId) {
+    return NextResponse.json({ error: "USER_ID_REQUIRED" }, { status: 400 });
   }
 
   try {
-    const todo = createTodo(name);
-    const todos = listTodos();
-    if (todos.length == 8)
-      console.log("Max todos reached, deleting the oldest one");
-    return NextResponse.json({ todo }, { status: 201 });
+    const item = addItem(userId, name, content);
+    return NextResponse.json({ todo: item }, { status: 201 });
   } catch (err) {
-    if (err instanceof Error && err.message === "NAME_REQUIRED") {
-      return NextResponse.json({ error: "NAME_REQUIRED" }, { status: 400 });
+    if (err instanceof TodoError) {
+      return NextResponse.json({ error: err.code, message: err.message }, { status: 422 });
     }
+    console.error("[POST /api/todos]", err);
     return NextResponse.json({ error: "INTERNAL_ERROR" }, { status: 500 });
   }
 }
@@ -36,14 +51,24 @@ export async function POST(request: Request) {
 export async function DELETE(request: Request) {
   const body = (await request.json().catch(() => null)) as {
     id?: unknown;
+    userId?: unknown;
   } | null;
 
   const id = typeof body?.id === "string" ? body.id.trim() : "";
+  const userId = typeof body?.userId === "string" ? body.userId.trim() : "";
+
+  if (!id || !userId) {
+    return NextResponse.json({ error: "MISSING_FIELDS" }, { status: 400 });
+  }
 
   try {
-    await deleteTodo(id);
-    return NextResponse.json({ message: "Todo deleted successfully" });
-  } catch (err) {
+    const deleted = deleteItem(id, userId);
+    if (!deleted) {
+      return NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
+    }
+    return NextResponse.json({ ok: true });
+  } catch {
     return NextResponse.json({ error: "INTERNAL_ERROR" }, { status: 500 });
   }
 }
+

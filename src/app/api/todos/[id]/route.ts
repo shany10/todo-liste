@@ -1,29 +1,25 @@
 import { NextResponse } from "next/server";
-import { deleteTodo, getTodoById } from "@/lib/todos-repo";
+import { deleteItem } from "@/lib/todos-repo";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 type Ctx = { params: Promise<{ id: string }> };
 
-export async function GET(_request: Request, ctx: Ctx) {
+export async function DELETE(request: Request, ctx: Ctx) {
   const { id } = await ctx.params;
-  const todo = getTodoById(id);
+  const body = (await request.json().catch(() => null)) as { userId?: unknown } | null;
+  const userId = typeof body?.userId === "string" ? body.userId.trim() : "";
 
-  if (!todo) {
-    return NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
+  if (!userId) {
+    return NextResponse.json({ error: "USER_ID_REQUIRED" }, { status: 400 });
   }
 
-  return NextResponse.json({ todo });
-}
-
-export async function DELETE(_request: Request, ctx: Ctx) {
-  const { id } = await ctx.params;
-  const existed = deleteTodo(id);
-
-  if (!existed) {
+  const deleted = deleteItem(id, userId);
+  if (!deleted) {
     return NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
   }
 
   return NextResponse.json({ ok: true });
 }
+

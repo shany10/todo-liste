@@ -16,9 +16,25 @@ function init(db: SqliteDb) {
     CREATE TABLE IF NOT EXISTS todos (
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
+      content TEXT NOT NULL DEFAULT '',
+      user_id TEXT,
+      created_at TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS users (
+      id TEXT PRIMARY KEY,
+      firstname TEXT NOT NULL,
+      lastname TEXT NOT NULL,
+      email TEXT NOT NULL UNIQUE,
+      birthdate TEXT NOT NULL,
+      password_hash TEXT NOT NULL,
       created_at TEXT NOT NULL
     );
   `);
+
+  // Safe migrations for pre-existing databases
+  try { db.exec("ALTER TABLE todos ADD COLUMN content TEXT NOT NULL DEFAULT ''"); } catch {}
+  try { db.exec("ALTER TABLE todos ADD COLUMN user_id TEXT"); } catch {}
 }
 
 export function getDb(): SqliteDb {
